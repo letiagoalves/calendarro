@@ -7,6 +7,8 @@ import 'package:calendarro/date_utils.dart';
 import 'package:calendarro/default_day_tile_builder.dart';
 import 'package:flutter/material.dart';
 
+import 'calendarro.dart';
+
 abstract class DayTileBuilder {
   Widget build(BuildContext context, DateTime date, DateTimeCallback onTap);
 }
@@ -18,6 +20,7 @@ typedef void DateTimeCallback(DateTime datetime);
 typedef void CurrentPageCallback(DateTime pageStartDate, DateTime pageEndDate);
 
 class Calendarro extends StatefulWidget {
+  final bool canScroll;
   DateTime startDate;
   DateTime endDate;
   DisplayMode displayMode;
@@ -38,6 +41,7 @@ class Calendarro extends StatefulWidget {
 
   Calendarro({
     Key key,
+    this.canScroll = true,
     this.startDate,
     this.endDate,
     this.displayMode = DisplayMode.WEEKS,
@@ -65,7 +69,7 @@ class Calendarro extends StatefulWidget {
     startDayOffset = startDate.weekday - DateTime.monday;
 
     if (dayTileBuilder == null) {
-      dayTileBuilder = DefaultDayTileBuilder();
+      dayTileBuilder = DefaultDayTileBuilder() as DayTileBuilder;
     }
 
     if (weekdayLabelsRow == null) {
@@ -83,8 +87,7 @@ class Calendarro extends StatefulWidget {
   @override
   CalendarroState createState() {
     state = CalendarroState(
-        selectedDate: selectedDate,
-        selectedDates: selectedDates);
+        selectedDate: selectedDate, selectedDates: selectedDates);
     return state;
   }
 
@@ -102,9 +105,7 @@ class Calendarro extends StatefulWidget {
 
   int getPositionOfDate(DateTime date) {
     int daysDifference =
-        date
-            .difference(DateUtils.toMidnight(startDate))
-            .inDays;
+        date.difference(DateUtils.toMidnight(startDate)).inDays;
     int weekendsDifference = ((daysDifference + startDate.weekday) / 7).toInt();
     var position = daysDifference - weekendsDifference * 2;
     return position;
@@ -112,9 +113,7 @@ class Calendarro extends StatefulWidget {
 
   int getPageForDate(DateTime date) {
     if (displayMode == DisplayMode.WEEKS) {
-      int daysDifferenceFromStartDate = date
-          .difference(startDate)
-          .inDays;
+      int daysDifferenceFromStartDate = date.difference(startDate).inDays;
       int page = (daysDifferenceFromStartDate + startDayOffset) ~/ 7;
       return page;
     } else {
@@ -132,10 +131,7 @@ class CalendarroState extends State<Calendarro> {
   int pagesCount;
   PageView pageView;
 
-  CalendarroState({
-    this.selectedDate,
-    this.selectedDates
-  });
+  CalendarroState({this.selectedDate, this.selectedDates});
 
   @override
   void initState() {
@@ -181,16 +177,19 @@ class CalendarroState extends State<Calendarro> {
       pagesCount = lastPage + 1;
     } else {
       pagesCount = DateUtils.calculateMonthsDifference(
-          widget.startDate,
-          widget.endDate) + 1;
+              widget.startDate, widget.endDate) +
+          1;
     }
 
     pageView = PageView.builder(
       itemBuilder: (context, position) => _buildCalendarPage(position),
       itemCount: pagesCount,
+      physics: widget.canScroll
+          ? BouncingScrollPhysics()
+          : NeverScrollableScrollPhysics(),
       controller: PageController(
           initialPage:
-          selectedDate != null ? widget.getPageForDate(selectedDate) : 0),
+              selectedDate != null ? widget.getPageForDate(selectedDate) : 0),
       onPageChanged: (page) {
         if (widget.onPageSelected != null) {
           DateRange pageDateRange = _calculatePageDateRange(page);
@@ -204,24 +203,19 @@ class CalendarroState extends State<Calendarro> {
       widgetHeight = widget.dayLabelHeight + widget.dayTileHeight;
     } else {
       var maxWeeksNumber = DateUtils.calculateMaxWeeksNumberMonthly(
-          widget.startDate,
-          widget.endDate);
-      widgetHeight = widget.dayLabelHeight
-          + maxWeeksNumber * widget.dayTileHeight;
+          widget.startDate, widget.endDate);
+      widgetHeight =
+          widget.dayLabelHeight + maxWeeksNumber * widget.dayTileHeight;
     }
 
-    return Container(
-    height: widgetHeight,
-    child: pageView);
-
+    return Container(height: widgetHeight, child: pageView);
   }
 
   bool isDateSelected(DateTime date) {
     if (widget.selectionMode == SelectionMode.MULTI) {
-      final matchedSelectedDate = selectedDates.firstWhere((currentDate) =>
-          DateUtils.isSameDay(currentDate, date),
-          orElse: () => null
-      );
+      final matchedSelectedDate = selectedDates.firstWhere(
+          (currentDate) => DateUtils.isSameDay(currentDate, date),
+          orElse: () => null);
 
       return matchedSelectedDate != null;
     } else {
@@ -245,7 +239,6 @@ class CalendarroState extends State<Calendarro> {
   void update() {
     setState(() {});
   }
-
 
   Widget _buildCalendarPage(int position) {
     if (widget.displayMode == DisplayMode.WEEKS) {
@@ -282,7 +275,6 @@ class CalendarroState extends State<Calendarro> {
     }
   }
 
-
   DateRange _calculatePageDateRangeInMonthsMode(int pagePosition) {
     DateTime pageStartDate;
     DateTime pageEndDate;
@@ -299,9 +291,8 @@ class CalendarroState extends State<Calendarro> {
       pageStartDate = DateUtils.getFirstDayOfMonth(widget.endDate);
       pageEndDate = widget.endDate;
     } else {
-      DateTime firstDateOfCurrentMonth = DateUtils.addMonths(
-          widget.startDate,
-          pagePosition);
+      DateTime firstDateOfCurrentMonth =
+          DateUtils.addMonths(widget.startDate, pagePosition);
       pageStartDate = firstDateOfCurrentMonth;
       pageEndDate = DateUtils.getLastDayOfMonth(firstDateOfCurrentMonth);
     }
